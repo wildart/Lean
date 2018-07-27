@@ -266,5 +266,10 @@ namespace QuantConnect.Messaging
                 handler(packet);
             }
         }
+
+        public void Dispose()
+        {
+            // NOP
+        }
     }
 }
