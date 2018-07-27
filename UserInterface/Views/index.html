@@ -1,0 +1,217 @@
+﻿<html>
+<head>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <meta charset="UTF-8">
+    <title>Server-sent events demo</title>
+    <style>
+        #Log {
+            list-style: none;
+            height: 200px;
+            overflow: auto;
+            border-style: solid;
+            padding-left: 5px;
+        }
+        #Log li:before {
+            content: "\0BB \020";
+        }
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1; /* Sit on top */
+            padding-top: 70px; /* Location of the box */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgb(0,0,0); /* Fallback color */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        }
+        .modal-content {
+            background-color: #ff0b0b7d;
+            margin: auto;
+            padding: 10;
+            border: 1px solid #888;
+            width: 40%;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="Terminal"></div>
+    <li id="Log"></li>
+    <div id="modalPopup" class="modal">
+        <div class="modal-content">
+            <p>Some text in the Modal..</p>
+        </div>
+    </div>
+    <script>
+        var reconnectTimes = 10;
+        var modal = document.getElementById('modalPopup');
+        var modalContent = document.getElementsByClassName("modal-content")[0];
+        var evtSource = new EventSource('events');
+        console.log(evtSource.withCredentials);
+        console.log(evtSource.readyState);
+        console.log(evtSource.url);
+        var eventList = document.getElementById('Log');
+
+        evtSource.onopen = function (e) {
+            console.log("Connection to server opened.");
+            modal.style.display = "none";
+            reconnectTimes = 10;
+        };
+
+        evtSource.onmessage = function (e) {
+            var newElement = document.createElement("li");
+            newElement.textContent = "message: " + e.data;
+            eventList.appendChild(newElement);
+        };
+
+        evtSource.onerror = function (e) {
+            e = e || event, msg = '';
+
+            switch (e.target.readyState) {
+                // if reconnecting
+                case EventSource.CONNECTING:
+                    modal.style.display = "block";
+                    modalContent.children[0].innerText = `Reconnecting ${reconnectTimes} times ...`;
+                    reconnectTimes -= 1;
+                    break;
+                // if error was fatal
+                case EventSource.CLOSED:
+                    modal.style.display = "block";
+                    modalContent.children[0].innerText = 'Connection failed. Will not retry.';
+                    reconnectTimes = 0;
+                    break;
+            }
+            if (reconnectTimes > 0) {
+                console.log('Reconnecting...');
+            } else {
+                modalContent.children[0].innerText = 'Closed connection. Reload page.';
+                console.log('Connection closed');
+                evtSource.close();
+            }
+        };
+
+        evtSource.addEventListener("LiveNode", function (e) {            
+            var obj = JSON.parse(e.data);
+            logEvent("LiveNode", `DeployID=${obj.sDeployID}`)
+        }, false);
+
+        evtSource.addEventListener("RuntimeError", function (e) {
+            var obj = JSON.parse(e.data);
+            logEvent("RuntimeError", obj.sMessage)
+        }, false);
+
+        evtSource.addEventListener("HandledError", function (e) {
+            var obj = JSON.parse(e.data);
+            logEvent("HandledError", obj.sMessage)
+        }, false);
+
+        evtSource.addEventListener("Debug", function (e) {
+            var obj = JSON.parse(e.data);
+            logEvent("Debug", obj.sMessage)
+        }, false);
+
+        evtSource.addEventListener("Log", function (e) {
+            var obj = JSON.parse(e.data);
+            logEvent("Log", obj.sMessage)
+        }, false);
+
+        //function getTerminalUrl(job, holdReady = false, liveMode = false) {
+        //    var embedPage = liveMode ? "embeddedLive" : "embedded";
+        //    var hold = holdReady == false ? "0" : "1";
+        //    var version = "2.4.0.0"
+        //    var url = `https://www.quantconnect.com/terminal/${embedPage}?user=${job.iUserID}&token=${job.sChannel}&pid=${job.iProjectID}&version=${version}&holdReady=${hold}&bid=${job.sAlgorithmID}`;
+        //    return url;
+        //}
+
+        function logEvent(evnt, msg) {            
+            var newElement = document.createElement("li");
+            newElement.innerHTML = `${evnt}: ${msg}`;
+            eventList.appendChild(newElement);
+            eventList.scrollTop = eventList.scrollHeight;
+        }
+
+        function updatePlots(plots, obj, removeTrace = false) {
+            if (removeTrace) {
+                var idxs = Array.from(Array(data.length).keys());
+                Plotly.deleteTraces(Terminal, idxs);
+                data = [];
+            }
+
+            plots.forEach(chartName => {
+                var chart = obj.oResults.Charts[chartName];
+                if (chart == undefined)
+                    return;
+
+                var chartObj = Object.values(chart.Series)[0];
+                var xdata = chartObj.Values.map(v => v.x * 1000);
+                var ydata = chartObj.Values.map(v => v.y);
+
+                var id = data.findIndex(t => t.name == chart.Name);
+                if (id < 0) {
+                    var newtrace = {
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: chart.Name,
+                        x: [],
+                        y: [],
+                    };
+                    data.push(newtrace);
+                    Plotly.addTraces(Terminal, newtrace, [data.length - 1]);
+
+                    if (range.length == 0) {
+                        range = [new Date(obj.dtPeriodStart).getTime(), new Date(obj.dtPeriodFinish).getTime()];
+                        var update = { 'xaxis.range': range };
+                        Plotly.relayout(Terminal, update);
+                    }
+                }
+                var update = { x: [xdata], y: [ydata] };
+                Plotly.extendTraces(Terminal, update, [id]);                
+            });
+        }
+
+        var data = [];
+        var range = [];
+        var layout = {
+            title: '',
+            xaxis: {
+                type: 'date',
+                range: []
+            }
+        };
+        var plotCharts = ["Benchmark", "Strategy Equity"];
+
+        evtSource.addEventListener("BacktestNode", function (e) {
+            // clear log
+            while (eventList.firstChild)
+                eventList.removeChild(eventList.firstChild);
+
+            var obj = JSON.parse(e.data);
+            logEvent(obj.eType, `${obj.sAlgorithmID} (${obj.eLanguage}) @ ${obj.dtPeriodStart}`)
+            layout.title = `Stragtegy: ${obj.sAlgorithmID} (${obj.eLanguage})`;
+
+            Plotly.purge(Terminal);
+            Plotly.newPlot(Terminal, [], layout);
+            data = [];
+            range = [];
+        }, false);
+
+        evtSource.addEventListener("BacktestResult", function (e) {
+            var obj = JSON.parse(e.data);
+
+            // add to log
+            logEvent(obj.eType, `${ Object.keys(obj.oResults.Charts) } @ ${ obj.dtDateRequested }`)
+
+            // last message contains summary
+            if (obj.dProgress == 1) {
+                //logEvent(obj.eType, e.data);
+            }
+            updatePlots(plotCharts, obj, obj.dProgress == 1);
+        }, false);
+    </script>
+</body>
+</html>

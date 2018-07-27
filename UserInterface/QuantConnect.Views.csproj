@@ -166,6 +166,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Views\index.html" />
     <EmbeddedResource Include="Icons\application-exit-16.png" />
     <Content Include="Icons\applications-utilities-128.png" />
     <Content Include="Icons\dialog-cancel-32.png" />
