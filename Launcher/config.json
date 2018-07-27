@@ -6,7 +6,7 @@
     // two predefined environments, 'backtesting' and 'live', feel free
     // to add more!
 
-    "environment": "backtesting", // "live-paper", "backtesting", "live-interactive", "live-interactive-iqfeed"
+    "environment": "backtesting-web", // "live-paper", "backtesting", "live-interactive", "live-interactive-iqfeed"
 
     // algorithm class selector
     "algorithm-type-name": "BasicTemplateFrameworkAlgorithm",
@@ -131,6 +131,19 @@
             "real-time-handler": "QuantConnect.Lean.Engine.RealTime.BacktestingRealTimeHandler",
             "history-provider": "QuantConnect.Lean.Engine.HistoricalData.SubscriptionDataReaderHistoryProvider",
             "transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BacktestingTransactionHandler"
+        },
+
+        "backtesting-web": {
+            "live-mode": false,
+            "setup-handler": "QuantConnect.Lean.Engine.Setup.ConsoleSetupHandler",
+            "result-handler": "QuantConnect.Lean.Engine.Results.BacktestingResultHandler",
+            "data-feed-handler": "QuantConnect.Lean.Engine.DataFeeds.FileSystemDataFeed",
+            "real-time-handler": "QuantConnect.Lean.Engine.RealTime.BacktestingRealTimeHandler",
+            "transaction-handler": "QuantConnect.Lean.Engine.TransactionHandlers.BacktestingTransactionHandler",
+            "messaging-handler": "QuantConnect.Messaging.SSEMessageHandler",
+            "log-handler": "QuantConnect.Logging.QueueLogHandler",
+            "desktop-http-port": "12345",
+            "web-viewer-folder": "../../../UserInterface/Views"
         },
 
         // defines the 'live-paper' environment
